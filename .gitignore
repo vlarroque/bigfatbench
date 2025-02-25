@@ -1,0 +1,7 @@
+/.vs/
+/out/
+CMakeSettings.json
+.idea
+cmake-*
+.DS_Store
+build
