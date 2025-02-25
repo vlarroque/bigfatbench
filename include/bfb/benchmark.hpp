@@ -6,17 +6,12 @@
 #include <iomanip>
 #include <string>
 
-namespace std
-{
-    typedef std::ratio<1> seconds;
-}
-
 namespace BFB_NAMESPACE
 {
     class Chrono
     {
       public:
-        Chrono()  = default;
+        Chrono() : _start( std::chrono::high_resolution_clock::now() ) {};
         ~Chrono() = default;
 
         void start() { _start = std::chrono::high_resolution_clock::now(); }
@@ -30,24 +25,25 @@ namespace BFB_NAMESPACE
       private:
         std::chrono::time_point<std::chrono::high_resolution_clock> _start;
     };
+
     class Benchmark
     {
       public:
         using Task = std::function<void()>;
 
-        static double timer_ms( const Task & task ) { return _timerInternal<std::milli>( task ); }
-        static double timer_us( const Task & task ) { return _timerInternal<std::micro>( task ); }
-        static double timer_ns( const Task & task ) { return _timerInternal<std::nano>( task ); }
+        static double timer_ms( const Task & task ) { return timerInternal<std::milli>( task ); }
+        static double timer_us( const Task & task ) { return timerInternal<std::micro>( task ); }
+        static double timer_ns( const Task & task ) { return timerInternal<std::nano>( task ); }
 
         Benchmark( std::string name = "Unnamed Benchmark" ) : _name( std::move( name ) ) {}
         ~Benchmark() = default;
 
-        void run( const Task & task, const Task & init = []() {}, const Task & end = []() {} )
+        std::vector<double> run( const Task & task, const Task & init = []() {}, const Task & end = []() {} )
         {
             if ( _printProgress )
-                _runInternalPrint( task, init, end );
+                return runPrintInternal( task, init, end );
             else
-                _runInternal( task, init, end );
+                return runInternal( task, init, end );
         }
 
         Benchmark & iterations( const std::uint32_t iterations )
@@ -75,9 +71,14 @@ namespace BFB_NAMESPACE
             return *this;
         }
 
-        Benchmark & printProgress( const bool printProgress = true, const bool iterationsStats = false )
+        Benchmark & printProgress( const bool printProgress = true )
         {
-            _printProgress       = printProgress;
+            _printProgress = printProgress;
+            return *this;
+        }
+
+        Benchmark & printIterationsStats( const bool iterationsStats = true )
+        {
             _printIterationStats = iterationsStats;
             return *this;
         }
@@ -109,8 +110,19 @@ namespace BFB_NAMESPACE
         bool _printIterationStats { false };
         bool _printStats { false };
 
+        static constexpr const char * BOLD      = "\033[1m";
+        static constexpr const char * ITALIC    = "\033[3m";
+        static constexpr const char * UNDERLINE = "\033[4m";
+
+        static constexpr const char * RESET_ALL  = "\033[0m";
+        static constexpr const char * CLEAR_LINE = "\033[2K";
+        static constexpr const char * LINE_UP    = "\033[A";
+
+        static constexpr const char * COL_WHITE = "\033[38;2;255;255;255m";
+        static constexpr const char * COL_CORAL = "\033[38;2;255;127;80m";
+
         template<typename Unit>
-        static double _timerInternal( const Task & task )
+        static double timerInternal( const Task & task )
         {
             Chrono chrono;
             chrono.start();
@@ -118,68 +130,43 @@ namespace BFB_NAMESPACE
             return chrono.elapsed<Unit>();
         }
 
-        // clang-format off
-        void printProgress(const std::string &name, std::uint32_t index, std::uint32_t count, const double totalTime = 0.0) const {
-            const auto width = std::to_string(count).size();
-            bool done = (index == count);
-            std::cout << "\r" << _CLEAR_LINE
-                      << (done ? _ITALIC : "")
-                      << name << ": " << std::setfill(' ') << std::setw(width) << index << "/" << count
-                      << _RESET << " [";
-            done ? _setColor(0, 128, 0) : _setColorFromProgress(index, count);
-            std::cout << _getProgressBar(index, count)
-                      << _RESET << "] " << (done ? _ITALIC : "")
-                      << std::setprecision(3) << (static_cast<float>(index) / count * 100.f) << " %"
-                      << _RESET << (done ? " » Done" : "");
-            if (done) std::cout << " (" << totalTime << "s).";
-            std::cout << std::flush;
-        }
-
-
-        std::vector<double> _runInternalPrint( const Task & task, const Task & init, const Task & end ) const
+        std::vector<double> runPrintInternal( const Task & task, const Task & init, const Task & end ) const
         {
-            const std::uint32_t warmups = _warmups > 0 ? _warmups : static_cast<std::uint32_t>( _warmupPercentage * static_cast<float>( _iterations ) );
+            typedef std::ratio<1> seconds;
+            const std::uint32_t   warmups = _warmups > 0 ? _warmups : static_cast<std::uint32_t>( _warmupPercentage * static_cast<float>( _iterations ) );
 
-            _setColor( 255, 255, 255 );
-            std::cout << "> " << _BOLD << _UNDERLINE << _name << _RESET;
-            _setColor( 255, 255, 255 );
-            std::cout << " (" << warmups << " warmups " << _iterations << " iterations)" << std::endl;
-            _resetColor();
+            std::cout << COL_WHITE << "> " << BOLD << UNDERLINE << _name << RESET_ALL;
+            std::cout << COL_WHITE << " (" << warmups << " warmups " << _iterations << " iterations)" << RESET_ALL << std::endl;
 
-            RollingArray<double> itTimes( warmups + _iterations );
+            RollingArray<double> itTimes( 10 );
 
             if ( warmups > 0 )
             {
                 Chrono warmupChrono;
-                warmupChrono.start();
                 for ( std::uint32_t i = 0; i < warmups; i++ )
                 {
-                    Chrono chrono;
-                    chrono.start();
-
+                    Chrono itChrono;
                     printProgress( "Warmups", i, warmups );
 
                     init();
                     task();
                     end();
 
-                    itTimes.emplace(chrono.elapsed<std::seconds>());
-                    std::cout << std::endl << " ~ Estimated remaining time : " << itTimes.mean() * (warmups - i + 1) << "s\033[A" << std::flush;
+                    itTimes.emplace( itChrono.elapsed<seconds>() );
+                    printRemainingTime( i, warmups, itTimes.mean() );
                 }
-                printProgress( "Warmups", warmups, warmups, warmupChrono.elapsed<std::seconds>() );
+                printProgress( "Warmups", warmups, warmups, warmupChrono.elapsed<seconds>() );
             }
-            std::cout << std::endl;
+            std::cout << std::endl << RESET_ALL;
             itTimes.reset();
 
             std::vector<double> results {};
             results.resize( _iterations );
 
             Chrono benchmarkChrono;
-            benchmarkChrono.start();
             for ( std::uint32_t i = 0; i < _iterations; i++ )
             {
-                Chrono chrono;
-                chrono.start();
+                Chrono itChrono;
 
                 printProgress( "Benchmark", i, _iterations );
 
@@ -188,18 +175,17 @@ namespace BFB_NAMESPACE
                 results[ i ]             = currentTime;
                 end();
 
-                itTimes.emplace(chrono.elapsed<std::seconds>());
-                    std::cout << std::endl << " ~ Estimated remaining time : " << itTimes.mean() * (_iterations - i + 1) << "s" <<_LINE_UP << std::flush;
-
+                itTimes.emplace( itChrono.elapsed<seconds>() );
+                printRemainingTime( i, _iterations, itTimes.mean() );
             }
-            printProgress( "Benchmark", _iterations, _iterations, benchmarkChrono.elapsed<std::seconds>() );
+            printProgress( "Benchmark", _iterations, _iterations, benchmarkChrono.elapsed<seconds>() );
 
-            std::cout << std::endl << _CLEAR_LINE << _LINE_UP ;
+            std::cout << std::endl << CLEAR_LINE << LINE_UP << RESET_ALL;
 
             return results;
         }
 
-        std::vector<double> _runInternal( const Task & task, const Task & init, const Task & end ) const
+        std::vector<double> runInternal( const Task & task, const Task & init, const Task & end ) const
         {
             const std::uint32_t warmups = _warmups > 0 ? _warmups : static_cast<std::uint32_t>( _warmupPercentage * static_cast<float>( _iterations ) );
             if ( warmups > 0 )
@@ -225,24 +211,41 @@ namespace BFB_NAMESPACE
             return results;
         }
 
-        static constexpr const char * _BOLD       = "\033[1m";
-        static constexpr const char * _ITALIC     = "\033[3m";
-        static constexpr const char * _UNDERLINE  = "\033[4m";
-        static constexpr const char * _RESET      = "\033[0m";
-        static constexpr const char * _CLEAR_LINE = "\033[2K";
-        static constexpr const char * _LINE_UP    = "\033[A";
-
-        static void _setColor( const std::uint32_t r, const std::uint32_t g, const std::uint32_t b ) { std::cout << "\033[38;2;" << r << ";" << g << ";" << b << "m"; }
-
-        static void _setColorFromProgress( const std::uint32_t index, const std::uint32_t count )
+        void printRemainingTime( std::uint32_t index, std::uint32_t count, const double meanItTime ) const
         {
-            const float progress = static_cast<float>( index ) / static_cast<float>( count );
-            _setColor( 255u, static_cast<std::uint32_t>( std::round( progress * 255.f ) ), 0u );
+            std::cout << std::endl << CLEAR_LINE << COL_CORAL << " ~ Estimated remaining time : " << std::setfill( ' ' ) << std::setw( 5 ) << meanItTime * ( count - index + 1 ) << "s";
+            if ( _printIterationStats )
+                std::cout << " [" << meanItTime << "s/it | " << 1.f / meanItTime << "it/s]";
+            std::cout << "\033[A" << std::flush << RESET_ALL;
         }
 
-        static void _resetColor() { std::cout << "\033[0m"; }
+        // clang-format off
+        void printProgress(const std::string &name, std::uint32_t index, std::uint32_t count, const double totalTime = 0.0) const {
+            const int32_t width = static_cast<int32_t>(std::to_string(count).size());
+            bool done = (index == count);
+            std::cout << "\r" << CLEAR_LINE
+                      << (done ? ITALIC : "")
+                      << name << ": " << std::setfill(' ') << std::setw(width) << index << "/" << count
+                      << RESET_ALL << " [";
+            done ? setColor(0, 128, 0) : setColorFromProgress(index, count);
+            std::cout << getProgressBar(index, count)
+                      << RESET_ALL << "] " << (done ? ITALIC : "")
+                      << std::setprecision(3) << (static_cast<float>(index) / count * 100.f) << " %"
+                      << RESET_ALL << (done ? " » Done" : "");
+            if (done) std::cout << " (" << totalTime << "s).";
+            std::cout << std::flush;
+        }
+        // clang-format on
 
-        std::string _getProgressBar( const std::uint32_t index, const std::uint32_t total ) const
+        static void setColor( const std::uint32_t r, const std::uint32_t g, const std::uint32_t b ) { std::cout << "\033[38;2;" << r << ";" << g << ";" << b << "m"; }
+
+        static void setColorFromProgress( const std::uint32_t index, const std::uint32_t count )
+        {
+            const float progress = static_cast<float>( index ) / static_cast<float>( count );
+            setColor( 255u, static_cast<std::uint32_t>( std::round( progress * 255.f ) ), 0u );
+        }
+
+        std::string getProgressBar( const std::uint32_t index, const std::uint32_t total ) const
         {
             std::string progressBar;
             progressBar.reserve( _progressBarWidth );
@@ -263,34 +266,34 @@ namespace BFB_NAMESPACE
         template<typename T>
         class RollingArray
         {
-        public:
-            RollingArray( std::size_t size ) : data( size ) {}
+          public:
+            RollingArray( const std::size_t size ) : data( size ) {}
             ~RollingArray() = default;
 
-            void emplace(const T value)
+            void emplace( const T value )
             {
-                currentSize = std::min(currentSize + 1, data.size());
-                data[currentIndex] = value;
-                currentIndex = (currentIndex + 1) % data.size();
+                currentSize          = std::min( currentSize + 1, data.size() );
+                data[ currentIndex ] = value;
+                currentIndex         = ( currentIndex + 1 ) % data.size();
             }
 
             void reset()
             {
-                currentSize = 0;
+                currentSize  = 0;
                 currentIndex = 0;
             }
 
             T mean() const
             {
                 T total = 0;
-                for (std::size_t i = 0; i < currentSize; i++)
-                    total += data[i];
-                return total / static_cast<T>(currentSize);
+                for ( std::size_t i = 0; i < currentSize; i++ )
+                    total += data[ i ];
+                return total / static_cast<T>( currentSize );
             }
 
-        private:
-            std::size_t currentIndex { 0 };
-            std::size_t currentSize { 0 };
+          private:
+            std::size_t    currentIndex { 0 };
+            std::size_t    currentSize { 0 };
             std::vector<T> data;
         };
     };

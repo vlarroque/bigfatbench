@@ -10,13 +10,13 @@ int main()
     benchmark.timerFunction( bfb::Benchmark::timer_ms, "ms" );
     benchmark.warmups( 127 );
     benchmark.iterations( 288 );
-
+    benchmark.printIterationsStats();
 
     float total = 0.0f;
     benchmark.run(
         [ &total ]()
         {
-            for ( float i = 0; i < 5000000000; i += (static_cast<float>( std::rand() ) / static_cast<float>( RAND_MAX )) * 1000.0f )
+            for ( float i = 0; i < 5000000000; i += ( static_cast<float>( std::rand() ) / static_cast<float>( RAND_MAX ) ) * 1000.0f )
                 total += std::sin( i );
         } );
 
