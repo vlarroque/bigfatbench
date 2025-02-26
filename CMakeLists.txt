@@ -1,9 +1,18 @@
-cmake_minimum_required(VERSION 3.15)
+cmake_minimum_required(VERSION 3.0)
 project(bfb)
 
+set(bfb_sources
+        src/benchmark.cpp
+        include/bfb/benchmark.hpp
+        include/bfb/benchmark.inl
 
-add_library(bfb INTERFACE include/bfb/benchmark.hpp)
-target_include_directories(bfb INTERFACE include/)
+        include/bfb/utils/chrono.hpp
+        include/bfb/utils/moving_average.hpp
+        include/bfb/utils/print_helpers.hpp
+)
+
+add_library(bfb ${bfb_sources})
+target_include_directories(bfb PUBLIC include/)
 
 option(BFB_INCLUDE_EXAMPLE "Includes the example target of the bigfatbench project." ON)
 

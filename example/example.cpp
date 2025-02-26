@@ -4,6 +4,8 @@
 
 #include <bfb/benchmark.hpp>
 
+#include "bfb/utils/moving_average.hpp"
+
 int main()
 {
     bfb::Benchmark benchmark( "Example Benchmark" );
@@ -20,6 +22,5 @@ int main()
             for ( float i = 0; i < 5000000000; i += ( static_cast<float>( std::rand() ) / static_cast<float>( RAND_MAX ) ) * 1000.0f )
                 total += std::sin( i );
         } );
-
     return EXIT_SUCCESS;
 }
