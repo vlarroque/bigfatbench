@@ -3,7 +3,11 @@
 
 #define BFB_NAMESPACE bfb
 
+#include <chrono>
+#include <cmath>
+#include <functional>
 #include <iomanip>
+#include <iostream>
 #include <string>
 
 namespace BFB_NAMESPACE
@@ -38,12 +42,17 @@ namespace BFB_NAMESPACE
         Benchmark( std::string name = "Unnamed Benchmark" ) : _name( std::move( name ) ) {}
         ~Benchmark() = default;
 
-        std::vector<double> run( const Task & task, const Task & init = []() {}, const Task & end = []() {} )
+        std::vector<double> run( const Task & task )
+        {
+            return run( []() {}, task );
+        }
+
+        std::vector<double> run( const Task & init, const Task & task, const Task & end = []() {} )
         {
             if ( _printProgress )
                 return runPrintInternal( task, init, end );
-            else
-                return runInternal( task, init, end );
+
+            return runInternal( task, init, end );
         }
 
         Benchmark & iterations( const std::uint32_t iterations )
