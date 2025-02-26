@@ -8,9 +8,10 @@ int main()
 {
     bfb::Benchmark benchmark( "Example Benchmark" );
     benchmark.timerFunction( bfb::Benchmark::timer_ms, "ms" );
-    benchmark.warmups( 127 );
-    benchmark.iterations( 288 );
+    benchmark.warmups( 32 );
+    benchmark.iterations( 127 );
     benchmark.printIterationsStats();
+    benchmark.printStats();
 
     float total = 0.0f;
     benchmark.run(

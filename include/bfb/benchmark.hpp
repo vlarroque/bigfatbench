@@ -118,8 +118,11 @@ namespace BFB_NAMESPACE
         static constexpr const char * CLEAR_LINE = "\033[2K";
         static constexpr const char * LINE_UP    = "\033[A";
 
-        static constexpr const char * COL_WHITE = "\033[38;2;255;255;255m";
-        static constexpr const char * COL_CORAL = "\033[38;2;255;127;80m";
+        static constexpr const char * COL_WHITE        = "\033[38;2;255;255;255m";
+        static constexpr const char * COL_CORAL        = "\033[38;2;255;127;80m";
+        static constexpr const char * COL_LIGHT_YELLOW = "\033[38;2;255;255;224m";
+        static constexpr const char * COL_LIGHT_BLUE   = "\033[38;2;173;216;230m";
+        static constexpr const char * COL_LIGHT_CORAL  = "\033[38;2;240;128;128m";
 
         template<typename Unit>
         static double timerInternal( const Task & task )
@@ -132,6 +135,8 @@ namespace BFB_NAMESPACE
 
         std::vector<double> runPrintInternal( const Task & task, const Task & init, const Task & end ) const
         {
+            std::cout << std::setprecision( 3 );
+
             typedef std::ratio<1> seconds;
             const std::uint32_t   warmups = _warmups > 0 ? _warmups : static_cast<std::uint32_t>( _warmupPercentage * static_cast<float>( _iterations ) );
 
@@ -140,16 +145,18 @@ namespace BFB_NAMESPACE
 
             RollingArray<double> itTimes( 10 );
 
+            double totalTime = 0.0;
+
+            Chrono warmupChrono;
             if ( warmups > 0 )
             {
-                Chrono warmupChrono;
                 for ( std::uint32_t i = 0; i < warmups; i++ )
                 {
                     Chrono itChrono;
                     printProgress( "Warmups", i, warmups );
 
                     init();
-                    task();
+                    totalTime += _timerFunction( task );
                     end();
 
                     itTimes.emplace( itChrono.elapsed<seconds>() );
@@ -157,6 +164,7 @@ namespace BFB_NAMESPACE
                 }
                 printProgress( "Warmups", warmups, warmups, warmupChrono.elapsed<seconds>() );
             }
+
             std::cout << std::endl << RESET_ALL;
             itTimes.reset();
 
@@ -173,6 +181,7 @@ namespace BFB_NAMESPACE
                 init();
                 const double currentTime = _timerFunction( task );
                 results[ i ]             = currentTime;
+                totalTime += currentTime;
                 end();
 
                 itTimes.emplace( itChrono.elapsed<seconds>() );
@@ -181,6 +190,42 @@ namespace BFB_NAMESPACE
             printProgress( "Benchmark", _iterations, _iterations, benchmarkChrono.elapsed<seconds>() );
 
             std::cout << std::endl << CLEAR_LINE << LINE_UP << RESET_ALL;
+
+            if ( _printStats )
+            {
+                const double mean = totalTime / static_cast<double>( warmups + _iterations );
+
+                double variance = 0.;
+                double fastest  = std::numeric_limits<double>::max();
+                double slowest  = std::numeric_limits<double>::lowest();
+                for ( const double time : results )
+                {
+                    variance += ( time - mean ) * ( time - mean );
+                    slowest = std::max( slowest, time );
+                    fastest = std::min( fastest, time );
+                }
+                variance /= ( warmups + _iterations ) - 1;
+
+                const double standardDeviation = std::sqrt( variance );
+
+                const std::size_t totalTimeWidth = std::to_string( static_cast<std::size_t>( totalTime ) ).size();
+
+                std::cout << std::endl << std::endl;
+                std::cout << std::setprecision( static_cast<std::int32_t>( totalTimeWidth ) + 2 );
+                std::cout << COL_WHITE << UNDERLINE << "Execution time" << RESET_ALL;
+                std::cout << "\n  Total time          " << totalTime << " " << _timerUnit;
+                std::cout << std::setprecision( 3 );
+                std::cout << COL_LIGHT_YELLOW << "\n  Mean time           " << mean << " " << _timerUnit;
+                std::cout << COL_LIGHT_BLUE << "\n  Slowest             " << slowest << " " << _timerUnit;
+                std::cout << " (" << slowest - mean << " " << _timerUnit << " (" << ( slowest - mean ) * 100. / mean << " %))";
+                std::cout << COL_LIGHT_CORAL << "\n  Fastest             " << fastest << " " << _timerUnit;
+                std::cout << " (" << fastest - mean << " " << _timerUnit << " (" << ( fastest - mean ) * 100. / mean << " %))";
+                std::cout << std::endl << COL_WHITE << UNDERLINE << "Stats" << RESET_ALL;
+                std::cout << "\n  Variance            " << variance;
+                std::cout << "\n  Standard deviation  " << standardDeviation;
+            }
+
+            std::cout << std::endl << CLEAR_LINE << LINE_UP << RESET_ALL << std::endl;
 
             return results;
         }
@@ -230,7 +275,7 @@ namespace BFB_NAMESPACE
             done ? setColor(0, 128, 0) : setColorFromProgress(index, count);
             std::cout << getProgressBar(index, count)
                       << RESET_ALL << "] " << (done ? ITALIC : "")
-                      << std::setprecision(3) << (static_cast<float>(index) / count * 100.f) << " %"
+                      << (static_cast<float>(index) / count * 100.f) << " %"
                       << RESET_ALL << (done ? " » Done" : "");
             if (done) std::cout << " (" << totalTime << "s).";
             std::cout << std::flush;
