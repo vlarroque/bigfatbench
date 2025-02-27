@@ -5,18 +5,19 @@
 
 namespace bfb
 {
+    template<typename ClockType>
     class Chrono
     {
       public:
-        Chrono() : _start( std::chrono::high_resolution_clock::now() ) {}
+        Chrono() : _start( ClockType::now() ) {}
         ~Chrono() = default;
 
-        void start() { _start = std::chrono::high_resolution_clock::now(); }
+        void start() { _start = ClockType::now(); }
 
         template<typename TimeUnit>
         double elapsed() const
         {
-            return std::chrono::duration<double, TimeUnit>( std::chrono::high_resolution_clock::now() - _start ).count();
+            return std::chrono::duration<double, TimeUnit>( ClockType::now() - _start ).count();
         }
 
         double elapsed_ms() const { return elapsed<std::milli>(); }
@@ -25,8 +26,11 @@ namespace bfb
         double elapsed() const { return elapsed<std::ratio<1>>(); }
 
       private:
-        std::chrono::time_point<std::chrono::high_resolution_clock> _start;
+        std::chrono::time_point<ClockType> _start;
     };
-} // namespace BFB_NAMESPACE
+
+    typedef Chrono<std::chrono::steady_clock> SteadyChrono;
+    typedef Chrono<std::chrono::system_clock> SystemChrono;
+} // namespace bfb
 
 #endif // BFB_UTILS_CHRONO_HPP

@@ -2,43 +2,43 @@
 #define BFB_UTILS_MOVING_AVERAGE_HPP
 
 #include <cstdint>
+#include <queue>
 
 namespace bfb
 {
     class MovingAverage
     {
       public:
-        MovingAverage( const std::uint32_t windowSize ) : _windowSize( windowSize ), _sum( 0 ), _array( new double[ _windowSize ]() ) {}
-        ~MovingAverage() { delete[] _array; }
+        MovingAverage( const std::uint32_t windowSize ) : _windowSize( windowSize ) {}
+        ~MovingAverage() = default;
 
         void emplace( const double & value )
         {
             _sum += value;
-            _sum -= _array[ _currentIndex ];
+            _values.emplace( value );
 
-            _array[ _currentIndex ] = value;
-            _currentIndex           = ( _currentIndex + 1 ) % _windowSize;
-
-            if (_currentSize < _windowSize)
-                _currentSize++;
+            if ( _values.size() > _windowSize )
+            {
+                _sum -= _values.front();
+                _values.pop();
+            }
         }
 
-        double mean() const { return _sum / static_cast<double>( _currentSize ); }
+        double mean() const { return _sum / static_cast<double>( _values.size() ); }
 
         void reset()
         {
-            _sum          = 0;
-            _currentIndex = 0;
-            _currentSize  = 0;
+            _sum = 0.0;
+
+            std::queue<double> empty;
+            std::swap( _values, empty );
         }
 
       private:
         std::uint32_t _windowSize;
-        double        _sum;
-        double *      _array;
+        double        _sum { 0.0 };
 
-        std::uint32_t _currentIndex { 0 };
-        std::uint32_t _currentSize { 0 };
+        std::queue<double> _values;
     };
 } // namespace bfb
 
