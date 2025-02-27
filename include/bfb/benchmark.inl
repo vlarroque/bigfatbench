@@ -76,7 +76,7 @@ namespace bfb
     template<typename TimeUnit>
     double Benchmark::timer( const Task & task )
     {
-        const Chrono chrono {};
+        const SteadyChrono chrono {};
         task();
         return chrono.elapsed<TimeUnit>();
     }

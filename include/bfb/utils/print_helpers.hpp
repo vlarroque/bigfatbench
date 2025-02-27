@@ -30,10 +30,10 @@ namespace bfb
         std::cout << "\033[38;2;255;" << static_cast<std::uint32_t>( std::round( progress * 255.f ) ) << ";0m";
     }
 
-    inline void printRemainingTime( std::uint32_t index, std::uint32_t count, const double meanItTime = -1.0 )
+    inline void printRemainingTime( std::uint32_t index, std::uint32_t count, const double meanItTime, const bool printItTime )
     {
         std::cout << std::endl << CLEAR_LINE << COL_CORAL << " ~ Estimated remaining time : " << std::setfill( ' ' ) << std::setw( 5 ) << meanItTime * ( count - index + 1 ) << "s";
-        if ( meanItTime > 0.0 )
+        if ( printItTime )
             std::cout << " [" << meanItTime << "s/it | " << 1.f / meanItTime << "it/s]";
         std::cout << LINE_UP << std::flush << RESET_ALL;
     }

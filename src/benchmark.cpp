@@ -47,32 +47,32 @@ namespace bfb
 
         if ( _warmups > 0 )
         {
-            Chrono warmupChrono;
+            SteadyChrono warmupChrono;
             for ( std::uint32_t i = 0; i < _warmups; i++ )
             {
-                Chrono itChrono;
+                SteadyChrono itChrono;
                 printProgressBar( "Warmups", i, _warmups, _progressBarWidth );
 
                 init();
                 totalTime += _timerFunction( task );
                 end();
 
-                itTimes.emplace( std::max( itChrono.elapsed<seconds>(), 0.0 ) );
-                printRemainingTime( i, _warmups, std::max( itTimes.mean(), 0.0 ) );
+                itTimes.emplace( itChrono.elapsed<seconds>() );
+                printRemainingTime( i, _warmups, itTimes.mean(), _printIterationStats );
             }
             printProgressBar( "Warmups", _warmups, _warmups, _progressBarWidth, warmupChrono.elapsed<seconds>() );
         }
         std::cout << std::endl << RESET_ALL;
 
-        itTimes.reset();
+        itTimes = MovingAverage( 10 );
 
         std::vector<double> results {};
         results.resize( _iterations );
 
-        Chrono benchmarkChrono;
+        SteadyChrono benchmarkChrono;
         for ( std::uint32_t i = 0; i < _iterations; i++ )
         {
-            Chrono itChrono;
+            SteadyChrono itChrono;
 
             printProgressBar( "Benchmark", i, _iterations, _progressBarWidth );
 
@@ -82,8 +82,8 @@ namespace bfb
             totalTime += currentTime;
             end();
 
-            itTimes.emplace( std::max( itChrono.elapsed<seconds>(), 0.0 ) );
-            printRemainingTime( i, _iterations, std::max( itTimes.mean(), 0.0 ) );
+            itTimes.emplace( itChrono.elapsed<seconds>() );
+            printRemainingTime( i, _iterations, itTimes.mean(), _printIterationStats );
         }
         printProgressBar( "Benchmark", _iterations, _iterations, _progressBarWidth, benchmarkChrono.elapsed<seconds>() );
 
