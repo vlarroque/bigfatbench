@@ -11,9 +11,9 @@ namespace bfb
     inline std::vector<double> Benchmark::run( const Task & init, const Task & task, const Task & end ) const
     {
         if ( _printProgress )
-            return runInternalWithProgress( task, init, end );
+            return runInternalWithProgress( init, task, end );
 
-        return runInternal( task, init, end );
+        return runInternal( init, task, end );
     }
 
     inline Benchmark & Benchmark::iterations( const std::uint32_t iterations )

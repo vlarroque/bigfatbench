@@ -7,7 +7,7 @@ namespace bfb
 {
     Benchmark::Benchmark( std::string name ) : _name( std::move( name ) ) {}
 
-    std::vector<double> Benchmark::runInternal( const Task & task, const Task & init, const Task & end ) const
+    std::vector<double> Benchmark::runInternal( const Task & init, const Task & task, const Task & end ) const
     {
         if ( _warmups > 0 )
         {
@@ -32,7 +32,7 @@ namespace bfb
         return results;
     }
 
-    std::vector<double> Benchmark::runInternalWithProgress( const Task & task, const Task & init, const Task & end ) const
+    std::vector<double> Benchmark::runInternalWithProgress( const Task & init, const Task & task, const Task & end ) const
     {
         std::cout << std::setprecision( 3 );
 

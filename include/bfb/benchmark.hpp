@@ -48,8 +48,8 @@ namespace bfb
         bool _printIterationStats { false };
         bool _printStats { false };
 
-        std::vector<double> runInternal( const Task & task, const Task & init, const Task & end ) const;
-        std::vector<double> runInternalWithProgress( const Task & task, const Task & init, const Task & end ) const;
+        std::vector<double> runInternal( const Task & init, const Task & task, const Task & end ) const;
+        std::vector<double> runInternalWithProgress( const Task & init, const Task & task, const Task & end ) const;
 
         void printStats( const double totalTime, const std::vector<double> & results ) const;
     };
